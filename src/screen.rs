@@ -29,8 +29,11 @@ pub enum Color {
 }
 
 pub struct Screen {
-    w : i32,
-    h : i32,
+    pub w : i32,
+    pub h : i32,
+    pub redraw_needed : bool,
+    pub msg : Option<String>,
+    pub msg_was_set : bool,
 }
 
 impl Screen {
@@ -38,6 +41,9 @@ impl Screen {
         Screen {
             w : 0,
             h : 0,
+            redraw_needed : false,
+            msg : None,
+            msg_was_set : false,
         }
     }
 
@@ -45,12 +51,27 @@ impl Screen {
         if let Some((w,h)) = get_win_size(0) {
             self.w = w;
             self.h = h;
+            self.redraw_needed = false;
+            self.msg = None;
+            self.msg_was_set = false;
             true
         } else {
             false
         }
     }
 
+    pub fn show_msg<S>(&mut self, msg : S) where S: Into<String> {
+        self.msg = Some(msg.into());
+        self.msg_was_set = true;
+        self.redraw_needed = true;
+    }
+
+    pub fn clear_msg(&mut self) {
+        self.msg = None;
+        self.msg_was_set = true;
+        self.redraw_needed = true;
+    }
+    
     pub fn move_cursor(&self, x : i32, y : i32) {
         let mut x = x;
         let mut y = y;
