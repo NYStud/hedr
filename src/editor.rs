@@ -66,6 +66,9 @@ impl Editor {
         
         self.draw_key_help(1 + 0*w, h-1, "^G",  "Get Help");
         self.draw_key_help(1 + 0*w, h-0, "^X",  "Exit");
+
+        self.draw_key_help(1 + 1*w, h-1, "^O",  "Write File");
+        self.draw_key_help(1 + 1*w, h-0, "^R",  "Read File");
         
         self.screen.move_cursor(1, self.screen.h-2);
         if let Some(ref msg) = self.screen.msg {
@@ -78,8 +81,8 @@ impl Editor {
     fn draw_main_screen(&mut self) {
         self.draw_header();
         self.draw_footer();
-        self.screen.redraw_needed = false;
         flush();
+        self.screen.redraw_needed = false;
     }
 
     fn process_input(&mut self) {
@@ -91,6 +94,10 @@ impl Editor {
                     return;
                 } else if key == ctrl_key!('g') {
                     self.show_msg("Help is not available just yet");
+                } else if key == ctrl_key!('o') {
+                    self.show_msg("Writing files not implemented");
+                } else if key == ctrl_key!('r') {
+                    self.show_msg("Reading files not implemented");
                 }
                 
                 if ! self.screen.msg_was_set {
