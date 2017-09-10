@@ -5,3 +5,4 @@ authors = ["Ricardo R. Massaro <ricardo.massaro@gmail.com>"]
 
 [dependencies]
 termios = "0.2.2"
+libc = "0.2.30"

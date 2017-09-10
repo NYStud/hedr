@@ -1,16 +1,28 @@
+
+use libc::{c_ushort, ioctl, TIOCGWINSZ};
 use std::io;
 use std::io::Read;
 use termios::*;
 
+#[repr(C)]
+struct winsize {
+    ws_row : c_ushort,
+    ws_col : c_ushort,
+    ws_xpixel : c_ushort,
+    ws_ypixel : c_ushort,
+}
+
+#[macro_export]
 macro_rules! ctrl_key {
     ($x:expr) => (($x as u32) & 0x1f);
 }
 
+#[macro_export]
 macro_rules! alt_key {
     ($x:expr) => ((($x as u32) & 0x1f) + KEY_ALT_MIN);
 }
 
-const KEY_ALT_MIN : u32 = 3000;
+const KEY_ALT_MIN          : u32 = 3000;
 
 const KEY_ARROW_UP         : u32 = 1001;
 const KEY_ARROW_DOWN       : u32 = 1002;
@@ -77,6 +89,16 @@ pub fn setup_term(fd : i32) -> Termios {
 pub fn restore_term(fd : i32, termios : &mut Termios) {
     tcsetattr(fd, TCSANOW, termios).unwrap();
 }
+
+pub fn get_win_size(fd : i32) -> Option<(i32, i32)> {
+    let w = winsize { ws_row: 0, ws_col: 0, ws_xpixel: 0, ws_ypixel: 0 };
+    let r = unsafe { ioctl(fd, TIOCGWINSZ, &w) };
+     
+    match r {
+        0 => Some((w.ws_col as i32, w.ws_row as i32)),
+        _ => None
+    }
+} 
 
 fn is_letter(b : u8) -> bool {
     b >= b'A' && b <= b'Z'
