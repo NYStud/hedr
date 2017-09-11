@@ -5,3 +5,4 @@ extern crate libc;
 pub mod term;
 pub mod screen;
 pub mod editor;
+pub mod file;

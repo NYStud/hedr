@@ -4,5 +4,7 @@ use hedr::editor::Editor;
 
 fn main() {
     let mut editor = Editor::new();
-    editor.run();
+    if let Err(e) = editor.run() {
+        println!("ERROR: {}", e);
+    }
 }

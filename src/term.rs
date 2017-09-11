@@ -22,55 +22,55 @@ macro_rules! alt_key {
     ($x:expr) => ((($x as u32) & 0x1f) + KEY_ALT_MIN);
 }
 
-const KEY_ALT_MIN          : u32 = 3000;
+pub const KEY_ALT_MIN          : u32 = 3000;
 
-const KEY_ARROW_UP         : u32 = 1001;
-const KEY_ARROW_DOWN       : u32 = 1002;
-const KEY_ARROW_LEFT       : u32 = 1003;
-const KEY_ARROW_RIGHT      : u32 = 1004;
+pub const KEY_ARROW_UP         : u32 = 1001;
+pub const KEY_ARROW_DOWN       : u32 = 1002;
+pub const KEY_ARROW_LEFT       : u32 = 1003;
+pub const KEY_ARROW_RIGHT      : u32 = 1004;
 
-const KEY_HOME             : u32 = 1005;
-const KEY_END              : u32 = 1006;
-const KEY_INS              : u32 = 1007;
-const KEY_DEL              : u32 = 1008;
-const KEY_PAGE_UP          : u32 = 1009;
-const KEY_PAGE_DOWN        : u32 = 1010;
+pub const KEY_HOME             : u32 = 1005;
+pub const KEY_END              : u32 = 1006;
+pub const KEY_INS              : u32 = 1007;
+pub const KEY_DEL              : u32 = 1008;
+pub const KEY_PAGE_UP          : u32 = 1009;
+pub const KEY_PAGE_DOWN        : u32 = 1010;
 
-const KEY_CTRL_HOME        : u32 = 1011;
-const KEY_CTRL_END         : u32 = 1012;
-const KEY_CTRL_INS         : u32 = 1013;
-const KEY_CTRL_DEL         : u32 = 1014;
-const KEY_CTRL_PAGE_UP     : u32 = 1015;
-const KEY_CTRL_PAGE_DOWN   : u32 = 1016;
+pub const KEY_CTRL_HOME        : u32 = 1011;
+pub const KEY_CTRL_END         : u32 = 1012;
+pub const KEY_CTRL_INS         : u32 = 1013;
+pub const KEY_CTRL_DEL         : u32 = 1014;
+pub const KEY_CTRL_PAGE_UP     : u32 = 1015;
+pub const KEY_CTRL_PAGE_DOWN   : u32 = 1016;
 
-const KEY_F1               : u32 = 1021;
-const KEY_F2               : u32 = 1022;
-const KEY_F3               : u32 = 1023;
-const KEY_F4               : u32 = 1024;
-const KEY_F5               : u32 = 1025;
-const KEY_F6               : u32 = 1026;
-const KEY_F7               : u32 = 1027;
-const KEY_F8               : u32 = 1028;
-const KEY_F9               : u32 = 1029;
-const KEY_F10              : u32 = 1030;
-const KEY_F11              : u32 = 1031;
-const KEY_F12              : u32 = 1032;
+pub const KEY_F1               : u32 = 1021;
+pub const KEY_F2               : u32 = 1022;
+pub const KEY_F3               : u32 = 1023;
+pub const KEY_F4               : u32 = 1024;
+pub const KEY_F5               : u32 = 1025;
+pub const KEY_F6               : u32 = 1026;
+pub const KEY_F7               : u32 = 1027;
+pub const KEY_F8               : u32 = 1028;
+pub const KEY_F9               : u32 = 1029;
+pub const KEY_F10              : u32 = 1030;
+pub const KEY_F11              : u32 = 1031;
+pub const KEY_F12              : u32 = 1032;
 
-const KEY_SHIFT_F1         : u32 = 1041;
-const KEY_SHIFT_F2         : u32 = 1042;
-const KEY_SHIFT_F3         : u32 = 1043;
-const KEY_SHIFT_F4         : u32 = 1044;
-const KEY_SHIFT_F5         : u32 = 1045;
-const KEY_SHIFT_F6         : u32 = 1046;
-const KEY_SHIFT_F7         : u32 = 1047;
-const KEY_SHIFT_F8         : u32 = 1048;
-//const KEY_SHIFT_F9         : u32 = 1049;
-//const KEY_SHIFT_F10        : u32 = 1050;
-//const KEY_SHIFT_F11        : u32 = 1051;
-//const KEY_SHIFT_F12        : u32 = 1052;
+pub const KEY_SHIFT_F1         : u32 = 1041;
+pub const KEY_SHIFT_F2         : u32 = 1042;
+pub const KEY_SHIFT_F3         : u32 = 1043;
+pub const KEY_SHIFT_F4         : u32 = 1044;
+pub const KEY_SHIFT_F5         : u32 = 1045;
+pub const KEY_SHIFT_F6         : u32 = 1046;
+pub const KEY_SHIFT_F7         : u32 = 1047;
+pub const KEY_SHIFT_F8         : u32 = 1048;
+pub const KEY_SHIFT_F9         : u32 = 1049;
+pub const KEY_SHIFT_F10        : u32 = 1050;
+pub const KEY_SHIFT_F11        : u32 = 1051;
+pub const KEY_SHIFT_F12        : u32 = 1052;
 
-pub fn setup_term(fd : i32) -> Termios {
-    let orig = Termios::from_fd(fd).unwrap();
+pub fn setup_term(fd : i32) -> io::Result<Termios> {
+    let orig = Termios::from_fd(fd)?;
     let mut termios = orig.clone();
 
     termios.c_iflag &= !(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
@@ -81,13 +81,13 @@ pub fn setup_term(fd : i32) -> Termios {
     termios.c_cc[VMIN] = 0;
     termios.c_cc[VTIME] = 1;
     
-    tcsetattr(fd, TCSANOW, &mut termios).unwrap();
+    tcsetattr(fd, TCSANOW, &mut termios)?;
 
-    orig
+    Ok(orig)
 }
 
-pub fn restore_term(fd : i32, termios : &mut Termios) {
-    tcsetattr(fd, TCSANOW, termios).unwrap();
+pub fn restore_term(fd : i32, termios : &mut Termios) -> io::Result<()> {
+    tcsetattr(fd, TCSANOW, termios)
 }
 
 pub fn get_win_size(fd : i32) -> Option<(i32, i32)> {
@@ -108,8 +108,17 @@ fn is_digit(b : u8) -> bool {
     b >= b'0' && b <= b'9'
 }
 
+/*
+pub fn debug(s : &str) {
+    print!("\x1b[2;1H{}", s);
+    super::screen::clear_eol();
+    super::screen::flush();
+}
+*/
+
 fn parse_key(s : &[u8]) -> ::std::io::Result<u32> {
-    print!("key: <ESC>");
+    /*
+    debug("key: <ESC>");
     for b in s {
         if *b >= 32u8 && *b < 127u8 {
             print!("{}", *b as char);
@@ -119,7 +128,8 @@ fn parse_key(s : &[u8]) -> ::std::io::Result<u32> {
             print!("<\\x{:x}>", b);
         }
     }
-    print!("\r\n");
+    super::screen::flush();
+    */
 
     if s.len() == 0 {
         return Ok(0x1b);
@@ -230,48 +240,43 @@ fn parse_key(s : &[u8]) -> ::std::io::Result<u32> {
     return Ok(0xffff_ffff)
 }
 
-pub fn read_key() -> ::std::io::Result<u32> {
-    let stdin = io::stdin();
-    let mut reader = stdin.lock();
+pub fn read_key(reader : &mut Read) -> io::Result<u32> {
+    //let mut reader = unsafe {
+    //    use std::os::unix::io::FromRawFd;
+    //    ::std::fs::File::from_raw_fd(::libc::STDOUT_FILENO)
+    //};
+
     let mut buffer = [0u8;32];
-    loop {
-        match reader.read(&mut buffer[0..1]) {
-            Ok(n) => {
-                if n == 0 {
-                    continue;
-                }
-                if buffer[0] != 0x1b {
-                    return Ok(buffer[0] as u32);
-                }
-                break;
-            },
-            Err(e) => return Err(e)
-        };
-    };
+    while reader.read(&mut buffer[0..1])? == 0 {
+    }
+    if buffer[0] != 0x1b {
+        return Ok(buffer[0] as u32);
+    }
+
     let mut n = 0_usize;
-    let mut min = 2usize;
-    loop {
-        if n >= buffer.len() {
+    if reader.read(&mut buffer[n..n+1])? != 1 {
+        return Ok(0x1b);
+    }
+    n += 1;
+
+    macro_rules! next_byte {
+        () => {
+            if reader.read(&mut buffer[n..n+1])? != 1 {
+                return parse_key(&buffer[0..n]);
+            }
+            n += 1;
+        }
+    }
+
+    while n < buffer.len()-3 {
+        next_byte!();
+        let b = buffer[n-1];
+        if b == b'~' || b == b'^' || is_letter(b) {
             return parse_key(&buffer[0..n]);
         }
-        match reader.read(&mut buffer[n..n+1]) {
-            Ok(len) => {
-                if len == 0 {
-                    return parse_key(&buffer[0..n]);
-                }
-                let b = buffer[n];
-                n += 1;
-                if min == 0 && (b == b'~' || b == b'^' || (b >= b'A' && b <= b'Z')) {
-                    return parse_key(&buffer[0..n]);
-                }
-                if min == 0 && b == b';' {
-                    min = 2;
-                }
-                if min > 0 {
-                    min -= 1;
-                }
-            },
-            Err(e) => return Err(e),
+        if b == b';' {
+            next_byte!();
         }
-    };
+    }
+    return parse_key(&buffer[0..n]);
 }
