@@ -2,15 +2,17 @@
 use super::screen::*;
 use super::term::*;
 use super::file::File;
+use super::file_sel::FileSel;
 use std::error::Error;
 use std::io;
+use std::ffi::{OsString, OsStr};
 
-const SHORTCUT_SPACING : i32 = 16;
-const HEADER_LINES : i32 = 2;
-const FOOTER_LINES : i32 = 3;
-const BORDER_LINES : i32 = HEADER_LINES + FOOTER_LINES;
+pub const SHORTCUT_SPACING : i32 = 16;
+pub const HEADER_LINES : i32 = 2;
+pub const FOOTER_LINES : i32 = 3;
+pub const BORDER_LINES : i32 = HEADER_LINES + FOOTER_LINES;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum EditorMode {
     Default,
     ReadFilename,
@@ -19,8 +21,8 @@ enum EditorMode {
 }
 
 pub struct Editor {
-    screen : Screen,
-    quit : bool,
+    pub screen : Screen,
+    pub quit : bool,
     files : Vec<File>,
     cur_file : usize,
     mode : EditorMode,
@@ -53,20 +55,21 @@ impl Editor {
             if self.screen.redraw_needed {
                 self.draw_main_screen();
             }
-            if let Err(_) = self.process_input() {
-                self.quit = true;
-            }
+            //if let Err(_) = self.process_input() {
+            //    self.quit = true;
+            //}
+            self.process_input();
         }
        
         reset_color();
         clear_screen();
         show_cursor(true);
-        flush();
+        flush_screen();
         restore_term(term_fd, &mut orig_term)?;
         Ok(())
     }
 
-    fn read_key(&mut self) -> u32 {
+    pub fn read_key(&mut self) -> u32 {
         let stdin = io::stdin();
         let mut reader = stdin.lock();
         match read_key(&mut reader) {
@@ -125,11 +128,11 @@ impl Editor {
         }
     }
     
-    fn show_msg<S>(&mut self, msg : S) where S: Into<String> {
+    pub fn show_msg<S>(&mut self, msg : S) where S: Into<String> {
         self.screen.show_msg(msg);
     }
 
-    fn clear_msg(&mut self) {
+    pub fn clear_msg(&mut self) {
         self.screen.clear_msg();
     }
 
@@ -147,9 +150,13 @@ impl Editor {
         self.screen.move_cursor(self.screen.w - 11, 1);
         print!(" hedx v0.1");
         clear_eol();
+
+        self.screen.move_cursor(1, HEADER_LINES);
+        reset_color();
+        clear_eol();
     }
 
-    fn draw_key_help(&mut self, x : i32, y : i32, key : &str, help : &str) {
+    pub fn draw_key_help(&mut self, x : i32, y : i32, key : &str, help : &str) {
         self.screen.move_cursor(x, y);
         set_color(Color::FGBlack, Color::BGGray);
         print!("{}", key);
@@ -160,7 +167,7 @@ impl Editor {
         }
     }
     
-    fn void_key_help(&mut self, x : i32, y : i32) {
+    pub fn void_key_help(&mut self, x : i32, y : i32) {
         self.screen.move_cursor(x, y);
         reset_color();
         clear_eol();
@@ -225,10 +232,6 @@ impl Editor {
         self.draw_header();
         self.draw_footer();
 
-        self.screen.move_cursor(1, HEADER_LINES);
-        reset_color();
-        clear_eol();
-        
         let mut line = HEADER_LINES + 1;
 
         if let Some(file) = self.cur_file() {
@@ -279,16 +282,16 @@ impl Editor {
             clear_eol();
         }
         
-        flush();
+        flush_screen();
         self.screen.redraw_needed = false;
     }
 
-    fn process_input(&mut self) -> io::Result<()> {
+    fn process_input(&mut self) {
         let key = self.read_key();
         self.screen.msg_was_set = false;
         if key == ctrl_key!('x') {
             self.quit = true;
-            return Ok(());
+            return;
         } else if key == ctrl_key!('l') {
             clear_screen();
             self.screen.redraw_needed = true;
@@ -327,7 +330,6 @@ impl Editor {
         if ! self.screen.msg_was_set {
             self.clear_msg();
         }
-        Ok(())
     }
 
     fn ensure_cursor_visible(&mut self, visible_len_after : usize) {
@@ -491,7 +493,7 @@ impl Editor {
         }
     }
 
-    pub fn prompt_get_filename(&mut self, prompt : &str) -> Option<String> {
+    pub fn prompt_get_filename(&mut self, prompt : &str) -> Option<OsString> {
         let old_mode = self.mode;
         self.mode = EditorMode::ReadFilename;
         let ret = self.prompt_get_text(prompt);
@@ -504,7 +506,14 @@ impl Editor {
         self.mode = EditorMode::ReadString;
         let ret = self.prompt_get_text(prompt);
         self.mode = old_mode;
-        ret
+        if let Some(os_str) = ret {
+            match os_str.into_string() {
+                Ok(string) => Some(string),
+                Err(_) => None,
+            }
+        } else {
+            None
+        }
     }
 
     pub fn prompt_get_yes_no(&mut self, prompt : &str) -> Option<bool> {
@@ -526,7 +535,7 @@ impl Editor {
             print!(" {}", prompt);
             clear_eol();
             show_cursor(true);
-            flush();
+            flush_screen();
 
             let key = self.read_key();
             if key == ctrl_key!('c') {
@@ -548,9 +557,9 @@ impl Editor {
         answer
     }
 
-    fn prompt_get_text(&mut self, prompt : &str) -> Option<String> {
+    fn prompt_get_text(&mut self, prompt : &str) -> Option<OsString> {
         let mut filename = Vec::<char>::new();
-        let mut answer : Option<String> = None;
+        let mut text : Option<OsString> = None;
         let mut cursor_pos = 0_usize;
 
         self.clear_msg();
@@ -570,14 +579,15 @@ impl Editor {
             clear_eol();
             self.screen.move_cursor(((prompt.len() + 4 + cursor_pos)&0xffff_ffff) as i32, self.screen.h - FOOTER_LINES + 1);
             show_cursor(true);
-            flush();
+            flush_screen();
 
             let key = self.read_key();
             if key == ctrl_key!('c') {
                 break;
             }
             if key == 13 {
-                answer = Some(filename.into_iter().collect());
+                let string : String = filename.into_iter().collect();
+                text = Some(string.into());
                 break;
             }
 
@@ -605,6 +615,15 @@ impl Editor {
                 cursor_pos = filename.len();
                 continue;
             }
+            if key == ctrl_key!('t') && self.mode == EditorMode::ReadFilename {
+                let mut fs = FileSel::new(self);
+                show_cursor(false);
+                text = fs.select_file(OsStr::new("."));
+                show_cursor(true);
+                if text.is_some() {
+                    break;
+                }
+            }
             if key == KEY_ARROW_LEFT {
                 if cursor_pos > 0 {
                     cursor_pos -= 1;
@@ -621,7 +640,7 @@ impl Editor {
 
         show_cursor(false);
         self.screen.redraw_needed = true;
-        answer
+        text
     }
     
 }

@@ -113,7 +113,7 @@ pub fn clear_screen() {
     print!("\x1b[H");
 }
 
-pub fn flush()
+pub fn flush_screen()
 {
     let stdout = io::stdout();
     stdout.lock().flush().unwrap();
