@@ -20,22 +20,24 @@ enum EditorMode {
     ReadYesNo,
 }
 
-pub struct Editor {
+pub struct Editor<'a> {
     pub screen : Screen,
     pub quit : bool,
     files : Vec<File>,
     cur_file : usize,
     mode : EditorMode,
+    stdin : io::StdinLock<'a>,
 }
 
-impl Editor {
-    pub fn new() -> Editor {
+impl<'a> Editor<'a> {
+    pub fn new(stdin : io::StdinLock<'a>) -> Editor<'a> {
         Editor {
             screen : Screen::new(),
             quit : false,
             files : Vec::new(),
             cur_file : 0,
             mode : EditorMode::Default,
+            stdin : stdin,
         }
     }
 
@@ -55,9 +57,6 @@ impl Editor {
             if self.screen.redraw_needed {
                 self.draw_main_screen();
             }
-            //if let Err(_) = self.process_input() {
-            //    self.quit = true;
-            //}
             self.process_input();
         }
        
@@ -70,9 +69,9 @@ impl Editor {
     }
 
     pub fn read_key(&mut self) -> u32 {
-        let stdin = io::stdin();
-        let mut reader = stdin.lock();
-        match read_key(&mut reader) {
+        //let stdin = io::stdin();
+        //let mut reader = stdin.lock();
+        match read_key(&mut self.stdin) {
             Ok(key) => key,
             Err(_) => {
                 self.quit = true;

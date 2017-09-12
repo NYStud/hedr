@@ -47,8 +47,8 @@ impl PartialEq for FileInfo {
 }
 
 
-pub struct FileSel<'a> {
-    editor : &'a mut Editor,
+pub struct FileSel<'a, 'b : 'a> {
+    editor : &'a mut Editor<'b>,
     quit : bool,
     selected_filename : Option<OsString>,
     cur_dir : Option<PathBuf>,
@@ -57,9 +57,9 @@ pub struct FileSel<'a> {
     top_index : usize,
 }
 
-impl <'a> FileSel<'a> {
+impl<'a, 'b> FileSel<'a, 'b> {
 
-    pub fn new(editor : &mut Editor) -> FileSel {
+    pub fn new(editor : &'a mut Editor<'b>) -> FileSel<'a, 'b> {
         FileSel {
             editor : editor,
             quit : false,
