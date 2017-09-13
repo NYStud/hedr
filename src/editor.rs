@@ -23,6 +23,7 @@ enum EditorMode {
 pub struct Editor<'a> {
     pub screen : Screen,
     pub quit : bool,
+    pub read_only : bool,
     files : Vec<File>,
     cur_file : usize,
     mode : EditorMode,
@@ -34,6 +35,7 @@ impl<'a> Editor<'a> {
         Editor {
             screen : Screen::new(),
             quit : false,
+            read_only : false,
             files : Vec::new(),
             cur_file : 0,
             mode : EditorMode::Default,
@@ -485,8 +487,8 @@ impl<'a> Editor<'a> {
                 self.add_file(file);
                 true
             },
-            Err(e) => {
-                self.show_msg(format!("Error reading file: {}", e.description()));
+            Err((filename, e)) => {
+                self.show_msg(format!("Error reading file {:?}: {}", filename, e.description()));
                 false
             },
         }

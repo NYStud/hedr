@@ -2,7 +2,7 @@
 use std::io;
 use std::io::Read;
 use std::fs;
-use std::ffi::{OsString, OsStr};
+use std::ffi::OsString;
 
 pub struct File {
     pub data : Vec<u8>,
@@ -24,10 +24,11 @@ impl File {
         }
     }
 
-    pub fn new_from_file(filename : OsString) -> io::Result<File> {
+    pub fn new_from_file(filename : OsString) -> Result<File, (OsString, io::Error)> {
+        let print_filename = filename.to_string_lossy().into_owned();
         let file = File {
-            data : read_file(&filename)?,
-            filename : Some(filename.to_string_lossy().into_owned()),
+            data : read_file(filename)?,
+            filename : Some(print_filename),
             modified : false,
             cursor_pos : 0,
             top_line : 0,
@@ -37,9 +38,15 @@ impl File {
     
 }
 
-fn read_file(filename : &OsStr) -> io::Result<Vec<u8>> {
-    let mut file = fs::File::open(filename)?;
+fn read_file(filename : OsString) -> Result<Vec<u8>, (OsString, io::Error)> {
+    let mut file = match fs::File::open(&filename) {
+        Ok(f) => f,
+        Err(e) => return Err((filename, e))
+    };
     let mut data = Vec::new();
-    file.read_to_end(&mut data)?;
+    match file.read_to_end(&mut data) {
+        Ok(_) => (),
+        Err(e) => return Err((filename, e))
+    }
     Ok(data)
 }
