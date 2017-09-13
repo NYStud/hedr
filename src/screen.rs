@@ -104,6 +104,14 @@ pub fn show_cursor(show : bool) {
     }
 }
 
+pub fn set_bold(bold : bool) {
+    if bold {
+        print!("\x1b[1m");
+    } else {
+        print!("\x1b[22m");
+    }
+}
+
 pub fn clear_eol() {
     print!("\x1b[K");
 }

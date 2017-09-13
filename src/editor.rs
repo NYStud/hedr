@@ -20,6 +20,12 @@ enum EditorMode {
     ReadYesNo,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+enum EditorPane {
+    Hex,
+    Text,
+}
+
 pub struct Editor<'a> {
     pub screen : Screen,
     pub quit : bool,
@@ -27,6 +33,8 @@ pub struct Editor<'a> {
     files : Vec<File>,
     cur_file : usize,
     mode : EditorMode,
+    pane : EditorPane,
+    half_byte_edited : bool,
     stdin : io::StdinLock<'a>,
 }
 
@@ -39,6 +47,8 @@ impl<'a> Editor<'a> {
             files : Vec::new(),
             cur_file : 0,
             mode : EditorMode::Default,
+            pane : EditorPane::Hex,
+            half_byte_edited : false,
             stdin : stdin,
         }
     }
@@ -239,19 +249,26 @@ impl<'a> Editor<'a> {
             let mut off = 16 * file.top_line;
             while off < file.data.len() && line <= self.screen.h - FOOTER_LINES {
                 self.screen.move_cursor(1, line);
+                reset_color();
                 print!("{:08x} | ", off);
 
+                set_bold(self.pane == EditorPane::Hex && ! self.read_only);
                 let line_len = if file.data.len() - off < 16 { file.data.len() - off } else { 16 };
                 for i in 0..line_len {
                     if i == 8 { print!(" "); }
                     if file.cursor_pos == off+i {
                         self.screen.move_cursor((11 + 3*i + if i>=8 { 1 } else { 0 }) as i32, line);
-                        set_color(Color::FGBlack, Color::BGGray);
+                        set_color(Color::FGBlack,
+                                  if self.half_byte_edited { Color::BGYellow }
+                                  else if self.pane == EditorPane::Hex { Color::BGGreen }
+                                  else { Color::BGGray });
+                        set_bold(false);
                         print!(" ");
                     }
                     print!("{:02x} ", file.data[off+i]);
                     if file.cursor_pos == off+i {
                         reset_color();
+                        set_bold(self.pane == EditorPane::Hex && ! self.read_only);
                     }
                 }
                 for i in line_len..16 {
@@ -259,14 +276,18 @@ impl<'a> Editor<'a> {
                     print!("   ");
                 }
                 print!("| ");
+                
+                set_bold(self.pane == EditorPane::Text && ! self.read_only);
                 for i in 0..line_len {
                     let b = file.data[off+i];
                     if file.cursor_pos == off+i {
-                        set_color(Color::FGBlack, Color::BGGray);
+                        set_color(Color::FGBlack, if self.pane == EditorPane::Text { Color::BGGreen } else { Color::BGGray });
+                        set_bold(false);
                     }
                     print!("{}", if b >= 32 && b < 127 { b } else { b'.' } as char);
                     if file.cursor_pos == off+i {
                         reset_color();
+                        set_bold(self.pane == EditorPane::Text && ! self.read_only);
                     }
                 }
                 clear_eol();
@@ -296,6 +317,11 @@ impl<'a> Editor<'a> {
         } else if key == ctrl_key!('l') {
             clear_screen();
             self.screen.redraw_needed = true;
+        } else if key == 9 {
+            self.pane = match self.pane {
+                EditorPane::Hex => EditorPane::Text,
+                EditorPane::Text => EditorPane::Hex,
+            };
         } else if key == ctrl_key!('g') {
             self.show_msg("Help is not available just yet");
         } else if key == ctrl_key!('o') {
@@ -310,7 +336,7 @@ impl<'a> Editor<'a> {
             self.move_cursor_up();
         } else if key == KEY_ARROW_DOWN {
             self.move_cursor_down();
-        } else if key == KEY_ARROW_LEFT {
+        } else if key == KEY_ARROW_LEFT || key == 127 || key == 8 {
             self.move_cursor_left();
         } else if key == KEY_ARROW_RIGHT {
             self.move_cursor_right();
@@ -326,6 +352,42 @@ impl<'a> Editor<'a> {
             self.go_to_prev_file();
         } else if key == alt_key!('.') {
             self.go_to_next_file();
+        }
+
+
+        if ! self.read_only {
+            if key >= 32 && key < 127 && self.pane == EditorPane::Text {
+                if let Some(file) = self.cur_file_mut() {
+                    if file.cursor_pos < file.data.len() {
+                        file.data[file.cursor_pos] = key as u8;
+                    }
+                }
+                self.move_cursor_right();
+                self.half_byte_edited = false;
+            } else if is_hex_digit(key) && self.pane == EditorPane::Hex {
+                let mut half_byte_edited = self.half_byte_edited;
+                if let Some(file) = self.cur_file_mut() {
+                    if file.cursor_pos < file.data.len() {
+                        if ! half_byte_edited {
+                            file.data[file.cursor_pos] &= 0x0f;
+                            file.data[file.cursor_pos] |= to_hex_val(key) << 4;
+                            half_byte_edited = true;
+                        } else {
+                            file.data[file.cursor_pos] &= 0xf0;
+                            file.data[file.cursor_pos] |= to_hex_val(key);
+                            half_byte_edited = false;
+                        }
+                    }
+                }
+                self.half_byte_edited = half_byte_edited;
+                if self.half_byte_edited {
+                    self.screen.redraw_needed = true;
+                } else {
+                    self.move_cursor_right();
+                }
+            } else {
+                self.half_byte_edited = false;
+            }
         }
         
         if ! self.screen.msg_was_set {
@@ -644,4 +706,33 @@ impl<'a> Editor<'a> {
         text
     }
     
+}
+
+fn is_hex_digit(key : u32) -> bool {
+    macro_rules! ascii {
+        ($ch:expr) => { $ch as u32 }
+    }
+
+    (key >= ascii!('0') && key <= ascii!('9'))
+        || (key >= ascii!('a') && key <= ascii!('f'))
+        || (key >= ascii!('A') && key <= ascii!('F'))
+}
+
+fn to_hex_val(key : u32) -> u8 {
+    macro_rules! ascii {
+        ($ch:expr) => { $ch as u32 }
+    }
+    macro_rules! byte {
+        ($ch:expr) => { ($ch) as u8 }
+    }
+
+    byte!(if key >= ascii!('0') && key <= ascii!('9') {
+        key - ascii!('0')
+    } else if key >= ascii!('a') && key <= ascii!('f') {
+        key - ascii!('a') + 10
+    } else if key >= ascii!('A') && key <= ascii!('F') {
+        key - ascii!('A') + 10
+    } else {
+        0
+    })
 }
